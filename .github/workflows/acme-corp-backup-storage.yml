@@ -46,8 +46,8 @@ jobs:
         run: |
           echo "Listing S3 buckets..."
           aws s3 ls
-          echo "Checking ACME-Backup bucket..."
-          aws s3 ls s3://ACME-Backup/
+          echo "Checking acme-corp-backup-storage bucket..."
+          aws s3 ls s3://acme-corp-backup-storage/
 
       - name: Create Daily Backup File
         run: |
@@ -61,10 +61,10 @@ jobs:
           echo "Daily Backup $BACKUP_DATE" > /tmp/$BACKUP_FILENAME
           
           # Upload to S3 bucket
-          aws s3 cp /tmp/$BACKUP_FILENAME s3://ACME-Backup/$BACKUP_FILENAME
+          aws s3 cp /tmp/$BACKUP_FILENAME s3://acme-corp-backup-storage/$BACKUP_FILENAME
           
-          echo "Successfully created backup file: s3://ACME-Backup/$BACKUP_FILENAME"
+          echo "Successfully created backup file: s3://acme-corp-backup-storage/$BACKUP_FILENAME"
           
           # Optional: List files in bucket to confirm upload
-          echo "Current files in ACME-Backup bucket:"
-          aws s3 ls s3://ACME-Backup/
+          echo "Current files in acme-corp-backup-storage bucket:"
+          aws s3 ls s3://acme-corp-backup-storage/
