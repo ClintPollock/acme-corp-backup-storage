@@ -13,8 +13,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      BRITIVE_TENANT: se-learn
-      BRITIVE_PROFILE_NAME: AWS Standalone/Widgeto Prod/S3-Access-App123
+      BRITIVE_TENANT: demo
+      BRITIVE_PROFILE_NAME: AWS SE Demo/se-demo/S3 Bucket Admin
       FED_PROVIDER: github-britive
       AWS_REGION: us-east-2 
 
