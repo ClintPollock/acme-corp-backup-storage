@@ -13,8 +13,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      GCS_BUCKET_NAME: acme-corp-backup-storage
-      GCP_PROJECT_ID: "810261868576"
+      GCS_BUCKET_NAME: acme-corp-backup-storage  # Update this to your actual bucket name
+      GCP_PROJECT_ID: 810261868576      # Update this to your actual project ID
 
     steps:
       - name: Install pybritive and gcloud CLI
@@ -42,7 +42,7 @@ jobs:
         run: |
           echo "Listing GCS buckets..."
           gsutil ls
-          echo "Checking backup bucket..."
+          echo "Checking ACME backup bucket..."
           gsutil ls gs://$GCS_BUCKET_NAME/ || echo "Bucket contents empty or inaccessible"
 
       - name: Create Daily Backup File in GCS
