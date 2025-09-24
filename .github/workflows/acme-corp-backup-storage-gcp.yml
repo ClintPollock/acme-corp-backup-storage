@@ -57,7 +57,7 @@ jobs:
           echo "Daily Backup $BACKUP_DATE" > /tmp/$BACKUP_FILENAME
           
           # Upload to GCS bucket
-          gsutil cp /tmp/$BACKUP_FILENAME gs://$GCS_BUCKET_NAME/$BACKUP_FILENAME
+          gsutil cp -n /tmp/$BACKUP_FILENAME gs://$GCS_BUCKET_NAME/$BACKUP_FILENAME
           
           echo "Successfully created backup file: gs://$GCS_BUCKET_NAME/$BACKUP_FILENAME"
           
