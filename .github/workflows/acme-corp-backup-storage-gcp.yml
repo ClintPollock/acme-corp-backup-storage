@@ -26,7 +26,7 @@ jobs:
           echo "Checking out GCP login command from Britive..."
       
           set +x
-          eval "$(pybritive checkout -t demo.britive-app.com -m gcloudauth 'GCP - CIS/GCP - CIS/LendingSavings Administrator' -P github-britive | grep '^gcloud auth activate-service-account')"
+          eval "$(pybritive checkout -t demo.britive-app.com -m gcloudauth 'GCP - CIS/GCP - CIS/ACME-Storage-Bucket' -P github-britive | grep '^gcloud auth activate-service-account')"
           set -x
 
       - name: Confirm GCP Access (safe output)
