@@ -36,7 +36,7 @@ jobs:
           echo "Setting project ID..."
           gcloud config set project $GCP_PROJECT_ID
 
-      - name: Retry GCS Bucket Listing (up to 5 attempts)
+      - name: GCS Bucket Listing
         run: |
           echo "Retrying bucket listing..."
           for i in {1..5}; do
