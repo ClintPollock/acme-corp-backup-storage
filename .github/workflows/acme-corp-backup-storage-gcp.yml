@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '0 8 * * *'  # Runs daily at 08:00 UTC
+
 permissions:
   id-token: write
   contents: read
@@ -13,8 +14,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      GCS_BUCKET_NAME: acme-corp-backup-storage  # Update this to your actual bucket name
-      GCP_PROJECT_ID: 810261868576      # Update this to your actual project ID
+      GCS_BUCKET_NAME: acme-corp-backup-storage
+      GCP_PROJECT_ID: 810261868576
 
     steps:
       - name: Install pybritive and gcloud CLI
@@ -24,7 +25,6 @@ jobs:
       - name: Checkout GCP access from Britive and authenticate
         run: |
           echo "Checking out GCP login command from Britive..."
-      
           set +x
           eval "$(pybritive checkout -t demo.britive-app.com -m gcloudauth 'GCP - CIS/GCP - CIS/ACME-Storage-Bucket' -P github-britive | grep '^gcloud auth activate-service-account')"
           set -x
@@ -36,29 +36,27 @@ jobs:
           echo "Setting project ID..."
           gcloud config set project $GCP_PROJECT_ID
 
-      - name: Test GCS Access - List Storage Buckets
+      - name: Retry GCS Bucket Listing (up to 5 attempts)
         run: |
-          echo "Listing GCS buckets..."
-          gsutil ls
-          echo "Checking ACME backup bucket..."
-          gsutil ls gs://$GCS_BUCKET_NAME/ || echo "Bucket contents empty or inaccessible"
+          echo "Retrying bucket listing..."
+          for i in {1..5}; do
+            echo "Attempt $i: Listing bucket contents..."
+            if gsutil ls gs://$GCS_BUCKET_NAME/; then
+              echo "Bucket listing succeeded."
+              break
+            else
+              echo "Bucket listing failed. Retrying in 15 seconds..."
+              sleep 15
+            fi
+          done
 
       - name: Create Daily Backup File in GCS
         run: |
-          # Generate current date in YYYY-MM-DD format
           BACKUP_DATE=$(date +%Y-%m-%d)
           BACKUP_FILENAME="Backup-${BACKUP_DATE}.bak"
-          
           echo "Creating backup file: $BACKUP_FILENAME"
-          
-          # Create temporary file with backup content
           echo "Daily Backup $BACKUP_DATE" > /tmp/$BACKUP_FILENAME
-          
-          # Upload to GCS bucket
           gsutil cp -n /tmp/$BACKUP_FILENAME gs://$GCS_BUCKET_NAME/$BACKUP_FILENAME
-          
           echo "Successfully created backup file: gs://$GCS_BUCKET_NAME/$BACKUP_FILENAME"
-          
-          # Optional: List files in bucket to confirm upload
           echo "Current files in backup bucket:"
           gsutil ls gs://$GCS_BUCKET_NAME/
