@@ -1,62 +1,96 @@
-name: Britive-GitHub Federated Access for GCP via OpenID Connect
+name: Britive-Github Federated Access for AWS Keyless via OpenID Connect
 
 on:
   workflow_dispatch:
   schedule:
     - cron: '0 8 * * *'  # Runs daily at 08:00 UTC
-
 permissions:
   id-token: write
   contents: read
 
 jobs:
-  federated-gcp-access:
+  federated-aws-access:
     runs-on: ubuntu-latest
 
     env:
-      GCS_BUCKET_NAME: acme-corp-backup-storage
-      GCP_PROJECT_ID: 810261868576
+      BRITIVE_TENANT: demo
+      BRITIVE_PROFILE_NAME: AWS SE Demo/se-demo/S3 Bucket Admin
+      FED_PROVIDER: github-britive
+      AWS_REGION: us-east-2
+      S3_BUCKET_NAME: britive-test-corp-bucket 
 
     steps:
-      - name: Install pybritive and gcloud CLI
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install pybritive cli
         run: |
           pip install pybritive --quiet
-
-      - name: Checkout GCP access from Britive and authenticate
+ 
+      - name: Configure Britive and AWS credential_process
         run: |
-          echo "Checking out GCP login command from Britive..."
-          set +x
-          eval "$(pybritive checkout -t demo.britive-app.com -m gcloudauth 'GCP - CIS/GCP - CIS/ACME-Storage-Bucket' -P github-britive | grep '^gcloud auth activate-service-account')"
-          set -x
+          mkdir -p ~/.aws
+          # Add profile alias
+          pybritive configure update profile-aliases default "$BRITIVE_PROFILE_NAME"
+          # Set AWS credential_process to use pybritive federation
+          cat <<EOF > ~/.aws/credentials
+          [default]
+          credential_process=pybritive checkout default -m awscredentialprocess -P $FED_PROVIDER
+          EOF
 
-      - name: Confirm GCP Access (safe output)
-        run: |
-          echo "Verifying GCP access..."
-          gcloud config list account --format="value(core.account)"
-          echo "Setting project ID..."
-          gcloud config set project $GCP_PROJECT_ID
+          # Set default AWS region
+          aws configure set default.region "$AWS_REGION"
 
-      - name: GCS Bucket Listing
+      - name: Test AWS Access - List S3 Buckets
         run: |
-          echo "Retrying bucket listing..."
-          for i in {1..5}; do
-            echo "Attempt $i: Listing bucket contents..."
-            if gsutil ls gs://$GCS_BUCKET_NAME/; then
-              echo "Bucket listing succeeded."
-              break
-            else
-              echo "Bucket listing failed. Retrying in 30 seconds..."
-              sleep 30
-            fi
-          done
+          echo "Using bucket: $S3_BUCKET_NAME"
+          echo "Testing AWS credentials and permissions..."
+          
+          # Check AWS identity
+          aws sts get-caller-identity
+          
+          echo "Listing S3 buckets..."
+          aws s3 ls
+          
+          echo "Checking if $S3_BUCKET_NAME bucket exists..."
+          if aws s3 ls s3://$S3_BUCKET_NAME/ 2>/dev/null; then
+            echo "Bucket $S3_BUCKET_NAME exists and is accessible"
+          else
+            echo "Bucket $S3_BUCKET_NAME either doesn't exist or we don't have ListBucket permissions"
+            echo "Attempting to create bucket..."
+            aws s3 mb s3://$S3_BUCKET_NAME --region $AWS_REGION || echo "Failed to create bucket - it may already exist or we lack CreateBucket permissions"
+          fi
 
-      - name: Create Daily Backup File in GCS
+      - name: Create Daily Backup File
         run: |
+          # Generate current date in YYYY-MM-DD format
           BACKUP_DATE=$(date +%Y-%m-%d)
           BACKUP_FILENAME="Backup-${BACKUP_DATE}.bak"
+          
+          echo "Using bucket: $S3_BUCKET_NAME"
           echo "Creating backup file: $BACKUP_FILENAME"
+          
+          # Create temporary file with backup content
           echo "Daily Backup $BACKUP_DATE" > /tmp/$BACKUP_FILENAME
-          gsutil cp -n /tmp/$BACKUP_FILENAME gs://$GCS_BUCKET_NAME/$BACKUP_FILENAME
-          echo "Successfully created backup file: gs://$GCS_BUCKET_NAME/$BACKUP_FILENAME"
-          echo "Current files in backup bucket:"
-          gsutil ls gs://$GCS_BUCKET_NAME/
+          
+          # Test if we can write to the bucket first
+          echo "Testing write permissions to bucket..."
+          if aws s3 cp /tmp/$BACKUP_FILENAME s3://$S3_BUCKET_NAME/$BACKUP_FILENAME; then
+            echo "Successfully uploaded backup file: s3://$S3_BUCKET_NAME/$BACKUP_FILENAME"
+          else
+            echo "Failed to upload backup file. Checking bucket permissions..."
+            # Try to check if bucket exists without listing contents
+            aws s3api head-bucket --bucket $S3_BUCKET_NAME || echo "Cannot access bucket $S3_BUCKET_NAME"
+            exit 1
+          fi
+          
+          # Optional: List files in bucket to confirm upload (may fail if ListBucket permission not available)
+          echo "Attempting to list files in $S3_BUCKET_NAME bucket:"
+          if aws s3 ls s3://$S3_BUCKET_NAME/; then
+            echo "Successfully listed bucket contents"
+          else
+            echo "Cannot list bucket contents - this is expected if the role only has PutObject permissions"
+            echo "Upload was successful even though listing failed"
+          fi
