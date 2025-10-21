@@ -16,7 +16,8 @@ jobs:
       BRITIVE_TENANT: demo
       BRITIVE_PROFILE_NAME: AWS SE Demo/se-demo/S3 Bucket Admin
       FED_PROVIDER: github-britive
-      AWS_REGION: us-east-2 
+      AWS_REGION: us-east-2
+      S3_BUCKET_NAME: britive-test-corp-bucket 
 
     steps:
       - name: Set up Python
@@ -44,10 +45,11 @@ jobs:
 
       - name: Test AWS Access - List S3 Buckets
         run: |
+          echo "Using bucket: $S3_BUCKET_NAME"
           echo "Listing S3 buckets..."
           aws s3 ls
-          echo "Checking acme-corp-backup-storage bucket..."
-          aws s3 ls s3://acme-corp-backup-storage/
+          echo "Checking $S3_BUCKET_NAME bucket..."
+          aws s3 ls s3://$S3_BUCKET_NAME/ || echo "Note: ListBucket permission may not be available, but uploads should still work"
 
       - name: Create Daily Backup File
         run: |
@@ -55,16 +57,17 @@ jobs:
           BACKUP_DATE=$(date +%Y-%m-%d)
           BACKUP_FILENAME="Backup-${BACKUP_DATE}.bak"
           
+          echo "Using bucket: $S3_BUCKET_NAME"
           echo "Creating backup file: $BACKUP_FILENAME"
           
           # Create temporary file with backup content
           echo "Daily Backup $BACKUP_DATE" > /tmp/$BACKUP_FILENAME
           
           # Upload to S3 bucket
-          aws s3 cp /tmp/$BACKUP_FILENAME s3://acme-corp-backup-storage/$BACKUP_FILENAME
+          aws s3 cp /tmp/$BACKUP_FILENAME s3://$S3_BUCKET_NAME/$BACKUP_FILENAME
           
-          echo "Successfully created backup file: s3://acme-corp-backup-storage/$BACKUP_FILENAME"
+          echo "Successfully created backup file: s3://$S3_BUCKET_NAME/$BACKUP_FILENAME"
           
-          # Optional: List files in bucket to confirm upload
-          echo "Current files in acme-corp-backup-storage bucket:"
-          aws s3 ls s3://acme-corp-backup-storage/
+          # Optional: List files in bucket to confirm upload (may fail if ListBucket permission not available)
+          echo "Attempting to list files in $S3_BUCKET_NAME bucket:"
+          aws s3 ls s3://$S3_BUCKET_NAME/ || echo "ListBucket operation failed - this is expected if the role only has PutObject permissions"
