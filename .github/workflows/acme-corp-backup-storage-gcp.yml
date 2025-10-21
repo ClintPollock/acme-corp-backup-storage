@@ -36,51 +36,10 @@ jobs:
           echo "Testing Britive connection..."
           pybritive --version
           
-          # Try to list available profiles to verify access
-          echo "Listing available profiles..."
-          if pybritive profile list -t $BRITIVE_TENANT -P $FED_PROVIDER; then
-            echo "Profiles listed successfully"
-          else
-            echo "Failed to list profiles - trying without federation provider..."
-            pybritive profile list -t $BRITIVE_TENANT || echo "Profile listing failed completely"
-          fi
-          
-          # Let's also try to get help on the checkout command to see available options
-          echo "Getting checkout command help..."
-          pybritive checkout --help || echo "Could not get checkout help"
-          
-          # Now attempt the checkout with error handling
+          # Attempt the checkout with the correct profile name
           echo "Attempting GCP checkout..."
           set +x
-          
-          # Try the original profile name first
-          echo "Trying profile name: '$BRITIVE_PROFILE_NAME'"
           if CHECKOUT_RESULT=$(pybritive checkout -t $BRITIVE_TENANT -m gcloudauth "$BRITIVE_PROFILE_NAME" -P $FED_PROVIDER 2>&1); then
-            echo "Checkout successful with original profile name!"
-          else
-            echo "Original profile name failed: $CHECKOUT_RESULT"
-            
-            # Try without the federation provider
-            echo "Trying without federation provider..."
-            if CHECKOUT_RESULT=$(pybritive checkout -t $BRITIVE_TENANT -m gcloudauth "$BRITIVE_PROFILE_NAME" 2>&1); then
-              echo "Checkout successful without federation provider!"
-            else
-              echo "Still failed: $CHECKOUT_RESULT"
-              
-              # Try with just the last part of the profile name
-              SIMPLE_PROFILE="ACME-Storage-Bucket"
-              echo "Trying simplified profile name: '$SIMPLE_PROFILE'"
-              if CHECKOUT_RESULT=$(pybritive checkout -t $BRITIVE_TENANT -m gcloudauth "$SIMPLE_PROFILE" -P $FED_PROVIDER 2>&1); then
-                echo "Checkout successful with simplified profile name!"
-              else
-                echo "All checkout attempts failed. Last error: $CHECKOUT_RESULT"
-                exit 1
-              fi
-            fi
-          fi
-          
-          # If we got here, one of the attempts succeeded
-          if echo "$CHECKOUT_RESULT" | grep -q '^gcloud auth activate-service-account'; then
             echo "Checkout successful, extracting gcloud auth command..."
             echo "$CHECKOUT_RESULT" | grep '^gcloud auth activate-service-account' | head -1 > /tmp/gcloud_cmd.sh
             if [ -s /tmp/gcloud_cmd.sh ]; then
