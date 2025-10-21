@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      BRITIVE_TENANT: demo
+      BRITIVE_TENANT: demo.britive-app.com
       BRITIVE_PROFILE_NAME: AWS SE Demo/se-demo/S3 Bucket Admin
       FED_PROVIDER: github-britive
       AWS_REGION: us-east-2
@@ -31,45 +31,17 @@ jobs:
  
       - name: Configure Britive and AWS credential_process
         run: |
-          echo "=== Britive Configuration Debug ==="
-          echo "Tenant: $BRITIVE_TENANT"
-          echo "Profile: $BRITIVE_PROFILE_NAME"
-          echo "Federation Provider: $FED_PROVIDER"
-          echo "AWS Region: $AWS_REGION"
-          
-          # Check pybritive version and connection
-          echo "PyBritive version:"
-          pybritive --version
-          
-          # Add debugging for OIDC token
-          echo "GitHub OIDC Token info:"
-          echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${ACTIONS_ID_TOKEN_REQUEST_TOKEN:0:20}..." || echo "No OIDC token found"
-          echo "ACTIONS_ID_TOKEN_REQUEST_URL: $ACTIONS_ID_TOKEN_REQUEST_URL" || echo "No OIDC URL found"
-          
-          # Test basic connectivity to Britive
-          echo "Testing Britive connectivity..."
-          pybritive version || echo "Britive connection test failed"
-          
           mkdir -p ~/.aws
           # Add profile alias
-          echo "Setting up profile alias..."
           pybritive configure update profile-aliases default "$BRITIVE_PROFILE_NAME"
-          
           # Set AWS credential_process to use pybritive federation
-          echo "Creating AWS credentials file..."
           cat <<EOF > ~/.aws/credentials
           [default]
           credential_process=pybritive checkout default -m awscredentialprocess -P $FED_PROVIDER
           EOF
 
-          echo "AWS credentials file contents:"
-          cat ~/.aws/credentials
-          
           # Set default AWS region
           aws configure set default.region "$AWS_REGION"
-          
-          echo "AWS config:"
-          aws configure list
 
       - name: Test AWS Access - List S3 Buckets
         run: |
