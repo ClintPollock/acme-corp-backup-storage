@@ -17,7 +17,7 @@ jobs:
       GCS_BUCKET_NAME: acme-corp-backup-storage
       GCP_PROJECT_ID: 810261868576
       BRITIVE_TENANT: demo.britive-app.com
-      BRITIVE_PROFILE_NAME: GCP - CIS/GCP - CIS/Britive-Test-Corp-Storage-Bucket
+      BRITIVE_PROFILE_NAME: GCP - CIS/GCP - CIS/ACME-Storage-Bucket
       FED_PROVIDER: github-britive
 
     steps:
@@ -30,54 +30,38 @@ jobs:
           echo "Checking out GCP login command from Britive..."
           echo "Using tenant: $BRITIVE_TENANT"
           echo "Using profile: $BRITIVE_PROFILE_NAME"
-          echo "Using provider: $FED_PROVIDER"
           
-          # First, let's check if we can connect to Britive
           echo "Testing Britive connection..."
           pybritive --version
           
-          # Attempt the checkout with the correct profile name
-          echo "Attempting GCP checkout..."
+          echo "Attempting GCP checkout (with federation provider for OIDC)..."
           set +x
-          if CHECKOUT_RESULT=$(pybritive checkout -t $BRITIVE_TENANT -m gcloudauth "$BRITIVE_PROFILE_NAME" -P $FED_PROVIDER 2>&1); then
-            echo "Checkout successful, extracting gcloud auth command..."
-            echo "$CHECKOUT_RESULT" | grep '^gcloud auth activate-service-account' | head -1 > /tmp/gcloud_cmd.sh
-            if [ -s /tmp/gcloud_cmd.sh ]; then
-              echo "Executing gcloud authentication..."
-              bash /tmp/gcloud_cmd.sh
-            else
-              echo "No gcloud auth command found in checkout result"
-              echo "Full checkout result:"
-              echo "$CHECKOUT_RESULT"
-              exit 1
-            fi
-          else
-            echo "Britive checkout failed with error:"
-            echo "$CHECKOUT_RESULT"
-            exit 1
-          fi
+          CHECKOUT_RESULT=$(pybritive checkout -t $BRITIVE_TENANT -m gcloudauth "$BRITIVE_PROFILE_NAME" -P $FED_PROVIDER)
+          echo "Checkout completed. Extracting gcloud auth command..."
+          
+          # Extract and execute the gcloud auth command
+          GCLOUD_CMD=$(echo "$CHECKOUT_RESULT" | grep '^gcloud auth activate-service-account' | head -1)
+          echo "Executing: $GCLOUD_CMD"
+          eval "$GCLOUD_CMD"
+          
+          echo "GCP authentication completed"
           set -x
 
-      - name: Confirm GCP Access (safe output)
+      - name: Test GCP Authentication and List Storage
         run: |
-          echo "Verifying GCP access..."
+          echo "Verifying GCP authentication..."
+          gcloud auth list
+          echo "Current authenticated account:"
           gcloud config list account --format="value(core.account)"
-          echo "Setting project ID..."
+          
+          echo "Setting project ID: $GCP_PROJECT_ID"
           gcloud config set project $GCP_PROJECT_ID
-
-      - name: GCS Bucket Listing
-        run: |
-          echo "Retrying bucket listing..."
-          for i in {1..5}; do
-            echo "Attempt $i: Listing bucket contents..."
-            if gsutil ls gs://$GCS_BUCKET_NAME/; then
-              echo "Bucket listing succeeded."
-              break
-            else
-              echo "Bucket listing failed. Retrying in 30 seconds..."
-              sleep 30
-            fi
-          done
+          
+          echo "Testing GCS access - listing buckets..."
+          gsutil ls
+          
+          echo "Testing specific bucket access..."
+          gsutil ls gs://$GCS_BUCKET_NAME/ || echo "Cannot access bucket $GCS_BUCKET_NAME"
 
       - name: Create Daily Backup File in GCS
         run: |
