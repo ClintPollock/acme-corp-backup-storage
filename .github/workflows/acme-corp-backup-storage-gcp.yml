@@ -28,11 +28,38 @@ jobs:
       - name: Checkout GCP access from Britive and authenticate
         run: |
           echo "Checking out GCP login command from Britive..."
-      
+          echo "Tenant: $BRITIVE_TENANT"
+          echo "Profile: $BRITIVE_PROFILE_NAME" 
+          echo "Federation Provider: $FED_PROVIDER"
+          
+          # Check pybritive version and connection
+          echo "PyBritive version:"
+          pybritive --version
+          
+          # Add debugging for OIDC token
+          echo "GitHub OIDC Token info:"
+          echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${ACTIONS_ID_TOKEN_REQUEST_TOKEN:0:20}..." || echo "No OIDC token found"
+          echo "ACTIONS_ID_TOKEN_REQUEST_URL: $ACTIONS_ID_TOKEN_REQUEST_URL" || echo "No OIDC URL found"
+          
+          echo "Attempting Britive checkout with detailed output..."
           set +x
-          pybritive checkout -t $BRITIVE_TENANT -m gcloudauth "$BRITIVE_PROFILE_NAME" -P $FED_PROVIDER | grep '^gcloud auth activate-service-account' > gcloud-login.sh
-          chmod +x gcloud-login.sh
-          ./gcloud-login.sh > /dev/null 2>&1
+          if CHECKOUT_RESULT=$(pybritive checkout -t $BRITIVE_TENANT -m gcloudauth "$BRITIVE_PROFILE_NAME" -P $FED_PROVIDER 2>&1); then
+            echo "Checkout successful! Extracting gcloud command..."
+            echo "$CHECKOUT_RESULT" | grep '^gcloud auth activate-service-account' > gcloud-login.sh
+            if [ -s gcloud-login.sh ]; then
+              chmod +x gcloud-login.sh
+              ./gcloud-login.sh > /dev/null 2>&1
+              echo "GCP authentication completed successfully"
+            else
+              echo "ERROR: No gcloud auth command found in output:"
+              echo "$CHECKOUT_RESULT"
+              exit 1
+            fi
+          else
+            echo "ERROR: Britive checkout failed:"
+            echo "$CHECKOUT_RESULT"
+            exit 1
+          fi
           set -x
 
       - name: Confirm GCP Access and Setup Permissions
