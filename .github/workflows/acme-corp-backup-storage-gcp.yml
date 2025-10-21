@@ -42,8 +42,13 @@ jobs:
           echo "ACTIONS_ID_TOKEN_REQUEST_URL: $ACTIONS_ID_TOKEN_REQUEST_URL" || echo "No OIDC URL found"
           
           echo "Attempting Britive checkout with detailed output..."
+          
+          # Set up profile alias first (like AWS workflow)
+          echo "Setting up profile alias..."
+          pybritive configure update profile-aliases default "$BRITIVE_PROFILE_NAME"
+          
           set +x
-          if CHECKOUT_RESULT=$(pybritive checkout -t $BRITIVE_TENANT -m gcloudauth "$BRITIVE_PROFILE_NAME" -P $FED_PROVIDER 2>&1); then
+          if CHECKOUT_RESULT=$(pybritive checkout default -t $BRITIVE_TENANT -m gcloudauth -P $FED_PROVIDER 2>&1); then
             echo "Checkout successful! Extracting gcloud command..."
             echo "$CHECKOUT_RESULT" | grep '^gcloud auth activate-service-account' > gcloud-login.sh
             if [ -s gcloud-login.sh ]; then
