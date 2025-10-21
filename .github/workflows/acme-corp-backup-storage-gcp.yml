@@ -17,7 +17,7 @@ jobs:
       GCS_BUCKET_NAME: acme-corp-backup-storage
       GCP_PROJECT_ID: 810261868576
       BRITIVE_TENANT: demo.britive-app.com
-      BRITIVE_PROFILE_NAME: GCP - CIS/GCP - CIS/ACME-Storage-Bucket
+      BRITIVE_PROFILE_NAME: GCP - CIS/GCP - CIS/Britive-Test-Corp-Storage-Bucket
       FED_PROVIDER: github-britive
 
     steps:
