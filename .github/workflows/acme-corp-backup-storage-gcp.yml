@@ -25,26 +25,32 @@ jobs:
         run: |
           pip install pybritive --quiet
 
-      - name: Checkout GCP access from Britive and authenticate
+      - name: Authenticate to GCP via Britive
         run: |
-          echo "Checking out GCP login command from Britive..."
+          echo "Authenticating to GCP via Britive..."
           echo "Using tenant: $BRITIVE_TENANT"
           echo "Using profile: $BRITIVE_PROFILE_NAME"
           
           echo "Testing Britive connection..."
           pybritive --version
           
-          echo "Attempting GCP checkout (with federation provider for OIDC)..."
+          # Use direct checkout approach with federation provider for OIDC
+          echo "Attempting GCP checkout with federation provider..."
           set +x
           CHECKOUT_RESULT=$(pybritive checkout -t $BRITIVE_TENANT -m gcloudauth "$BRITIVE_PROFILE_NAME" -P $FED_PROVIDER)
           echo "Checkout completed. Extracting gcloud auth command..."
           
           # Extract and execute the gcloud auth command
           GCLOUD_CMD=$(echo "$CHECKOUT_RESULT" | grep '^gcloud auth activate-service-account' | head -1)
-          echo "Executing: $GCLOUD_CMD"
-          eval "$GCLOUD_CMD"
-          
-          echo "GCP authentication completed"
+          if [ -n "$GCLOUD_CMD" ]; then
+            echo "Found gcloud auth command, executing..."
+            eval "$GCLOUD_CMD"
+            echo "GCP authentication completed successfully"
+          else
+            echo "No gcloud auth command found in output:"
+            echo "$CHECKOUT_RESULT"
+            exit 1
+          fi
           set -x
 
       - name: Test GCP Authentication and List Storage
